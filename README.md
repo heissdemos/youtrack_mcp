@@ -1,98 +1,122 @@
-# YouTrack MCP
+# YouTrack MCP Server
 
-Model Context Protocol (MCP) server for YouTrack Cloud.
+A Model Context Protocol (MCP) server for YouTrack Cloud, implemented using the official [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
 ## Features
 
-- Search issues
-- Update issues (status, assignee, comments, etc.)
-- Get issue details
-- Add comments
+- Issue search
+- Detailed issue information
+- Update issues (status, assignee, etc.)
+- Add comments to issues
+- Standardized interface via MCP Python SDK
+- Support for stdio and SSE transports
+- Integration with Claude Desktop and other MCP-compatible clients
 
 ## Requirements
 
 - Python 3.7 or higher
 - Access to YouTrack with API token
+- Installed MCP Python SDK
 
-## Local Installation
+## Installation
 
-1. Clone the repository: `git clone [repository-url]`
-2. Install dependencies: `pip install -r requirements.txt`
-3. Set parameters for connecting to YouTrack:
-   - Environment variables:
-     ```
-     YOUTRACK_URL=https://your-instance.youtrack.cloud
-     YOUTRACK_TOKEN=your-permanent-token
-     ```
-4. Run MCP server: `python main.py`
-
-## Running MCP server
-
-### Basic usage:
+### 1. Clone the repository
 
 ```bash
-python main.py
+git clone [repository-url]
+cd youtrack_mcp
 ```
 
-### With additional parameters:
+### 2. Install dependencies
 
 ```bash
-python main.py --transport stdio --verbose --youtrack-url https://your-instance.youtrack.cloud --youtrack-token your-token
+pip install -r requirements.txt
 ```
 
-### Command line parameters:
+### 3. Setup connection to YouTrack
 
-- `--transport` - Transport type (`stdio` or `sse`)
-- `--port` - Port for SSE transport (default: 8000)
-- `--verbose` or `-v` - Increase log detail level (can be used multiple times)
+Create a `.env` file in the root directory of the project with the following variables:
+
+```
+YOUTRACK_URL=https://your-instance.youtrack.cloud
+YOUTRACK_TOKEN=your-permanent-token
+MCP_SERVER_NAME=YouTrack MCP Server
+MCP_LOG_LEVEL=INFO
+```
+
+Or specify these parameters when starting the server via command line arguments.
+
+## Run MCP server
+
+### Development and debugging
+
+```bash
+# Запуск в режиме разработки с интерактивным веб-интерфейсом
+mcp dev server.py
+
+# With additional dependencies
+mcp dev server.py --with pandas --with numpy
+```
+
+### Direct run
+
+```bash
+# Run via MCP module
+python server.py
+
+# With additional parameters
+python server.py --youtrack-url https://your-instance.youtrack.cloud --youtrack-token your-token --read-only
+```
+
+### Command line parameters
+
 - `--read-only` - Run in read-only mode (blocks write operations)
 - `--youtrack-url` - URL of your YouTrack instance
 - `--youtrack-token` - API token for YouTrack
 
-## Integration with Windsurf
+## Integration with Claude Desktop
 
-### Step 1: Package preparation
+### Step 1: Install server
 
-1. Create a ZIP archive of the project, including the following files:
-   - `main.py`
-   - `youtrack_api.py`
-   - `requirements.txt`
+```bash
+# Install server in Claude Desktop
+mcp install server.py
 
-### Step 2: Installation in Windsurf
+# С пользовательским именем
+mcp install server.py --name "YouTrack MCP"
 
-1. Open Windsurf and go to Settings
-2. Find the "MCP Servers" or "Integrations" section
-3. Click "Add MCP Server" and specify the path to your ZIP archive
-4. Specify the server name (e.g., "YouTrack MCP")
+# With environment variables
+mcp install server.py -v YOUTRACK_URL=https://your-instance.youtrack.cloud -v YOUTRACK_TOKEN=your-token
+mcp install server.py -f .env
+```
 
-### Step 3: Environment variable configuration
+### Step 2: Activate server
 
-In the MCP server settings in Windsurf, specify:
-- `YOUTRACK_URL` - URL of your YouTrack
-- `YOUTRACK_TOKEN` - your API token for YouTrack
-
-### Step 4: Activate the server
-
-After configuration, activate the server in the list of available MCP servers. Windsurf should show that the server is successfully connected.
+1. Open Claude Desktop
+2. Go to Settings -> MCP Servers
+3. Make sure "YouTrack MCP Server" is listed and activated
 
 ## Available tools
 
 The server provides the following tools for working with YouTrack:
 
 - `youtrack_search_issues` - Search for issues
-- `youtrack_get_issue` - Get detailed issue information
-- `youtrack_update_issue` - Update issue
-- `youtrack_add_comment` - Add comment to issue
+- `youtrack_get_issue` - Get detailed information about an issue
+- `youtrack_update_issue` - Update an issue
+- `youtrack_add_comment` - Add a comment to an issue
 
-## Examples of use
+## Usage examples
 
 ### Search for issues:
 
 ```json
 {
+  "type": "tool_call",
   "name": "youtrack_search_issues",
-  "query": "project: YourProject",
-  "top": 10
+  "parameters": {
+    "query": "project: YourProject",
+    "top": 10
+  }
 }
 ```
 
@@ -100,16 +124,60 @@ The server provides the following tools for working with YouTrack:
 
 ```json
 {
+  "type": "tool_call",
   "name": "youtrack_get_issue",
-  "issue_id": "YourProject-123"
+  "parameters": {
+    "issue_id": "YourProject-123"
+  }
 }
 ```
 
-### Add comment:
+### Добавление комментария:
 
 ```json
 {
+  "type": "tool_call",
   "name": "youtrack_add_comment",
-  "issue_id": "YourProject-123",
-  "comment_text": "New comment to issue"
+  "parameters": {
+    "issue_id": "YourProject-123",
+    "comment_text": "Новый комментарий к задаче"
+  }
 }
+```
+
+### Access resources:
+
+```json
+{
+  "type": "resource_request",
+  "uri": "server://info"
+}
+```
+
+## Architecture
+
+The MCP server is built using the official Python SDK for Model Context Protocol, ensuring full compatibility with the MCP specification.
+
+Main components:
+- `server.py` - MCP server with tool and resource definitions
+- `youtrack_api.py` - Functions for interacting with YouTrack API
+
+## Development and extension
+
+To add new tools or resources, use the `@mcp.tool()` and `@mcp.resource()` decorators in the `server.py` file.
+
+### Example of adding a new tool:
+
+```python
+@mcp.tool()
+def youtrack_create_issue(project_id: str, summary: str, description: str = None) -> Dict[str, Any]:
+    """
+    Create a new issue in YouTrack.
+    
+    Args:
+        project_id: The ID of the project
+        summary: Issue summary
+        description: Optional issue description
+    """
+    # Add implementation here
+    return {"status": "success", "issue_id": "PROJECT-123"}

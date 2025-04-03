@@ -2,16 +2,24 @@
 
 import requests
 import os
+from typing import Dict, Any, Optional, List
 
-# Configuration - Consider moving to a config file or environment variables
-YOUTRACK_URL = os.environ.get("YOUTRACK_URL", "YOUR_YOUTRACK_INSTANCE_URL") # e.g., "https://yourcompany.youtrack.cloud"
-YOUTRACK_TOKEN = os.environ.get("YOUTRACK_TOKEN", "YOUR_YOUTRACK_TOKEN")
+# Configuration - Will be handled via environment variables or MCP context
+YOUTRACK_URL = os.environ.get("YOUTRACK_URL", "")
+YOUTRACK_TOKEN = os.environ.get("YOUTRACK_TOKEN", "")
 
-HEADERS = {
-    "Authorization": f"Bearer {YOUTRACK_TOKEN}",
-    "Accept": "application/json",
-    "Content-Type": "application/json",
-}
+def _get_headers() -> Dict[str, str]:
+    """Get headers for YouTrack API requests"""
+    token = os.environ.get("YOUTRACK_TOKEN", YOUTRACK_TOKEN)
+    return {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+
+def _get_youtrack_url() -> str:
+    """Get YouTrack URL from environment variables"""
+    return os.environ.get("YOUTRACK_URL", YOUTRACK_URL)
 
 # --- Placeholder Functions --- #
 
@@ -113,9 +121,9 @@ def add_comment(issue_id: str, comment_text: str, fields: str = "id,text,author(
 
 def _make_request(method, endpoint, params=None, json_data=None):
     """Helper function to make requests to the YouTrack API."""
-    url = f"{YOUTRACK_URL}/api/{endpoint}"
+    url = f"{_get_youtrack_url()}/api/{endpoint}"
     try:
-        response = requests.request(method, url, headers=HEADERS, params=params, json=json_data)
+        response = requests.request(method, url, headers=_get_headers(), params=params, json=json_data)
         response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
         # Handle cases where response might be empty (e.g., 204 No Content)
         if response.status_code == 204:
@@ -123,15 +131,15 @@ def _make_request(method, endpoint, params=None, json_data=None):
         return response.json()
     except requests.exceptions.RequestException as e:
         print(f"Error making request to {url}: {e}")
-        # Consider more robust error handling/logging
-        return {"error": str(e)}
+        # Improved error return for MCP tools
+        return {"error": str(e), "status": "error"}
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
-        return {"error": "An unexpected error occurred"}
+        return {"error": "An unexpected error occurred", "status": "error"}
 
 # Example usage (for testing purposes)
 if __name__ == "__main__":
-    if YOUTRACK_URL == "YOUR_YOUTRACK_INSTANCE_URL" or YOUTRACK_TOKEN == "YOUR_YOUTRACK_PERMANENT_TOKEN":
+    if YOUTRACK_URL == "" or YOUTRACK_TOKEN == "":
         print("Please set YOUTRACK_URL and YOUTRACK_TOKEN environment variables or update them in youtrack_api.py")
     else:
         # Example: Get details for a specific issue
