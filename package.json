@@ -1,0 +1,30 @@
+{
+  "name": "youtrack-mcp",
+  "version": "1.0.0",
+  "description": "YouTrack MCP Server - Model Context Protocol server for YouTrack Cloud",
+  "main": "bin/index.js",
+  "bin": {
+    "youtrack-mcp": "./bin/index.js"
+  },
+  "scripts": {
+    "start": "node bin/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/av-frox/youtrack_mcp.git"
+  },
+  "keywords": [
+    "youtrack",
+    "mcp",
+    "model-context-protocol",
+    "claude"
+  ],
+  "author": "av-frox",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/av-frox/youtrack_mcp/issues"
+  },
+  "homepage": "https://github.com/av-frox/youtrack_mcp#readme",
+  "dependencies": {
+  }
+}
