@@ -49,7 +49,66 @@ from youtrack_api import (
 
 # MCP server instance
 server_name = os.environ.get("MCP_SERVER_NAME", "YouTrack MCP Server")
-mcp = FastMCP(server_name)
+
+# Add lifecycle management for the server
+@dataclass
+class AppContext:
+    youtrack_url: str
+    youtrack_token: str
+    read_only: bool
+
+@asynccontextmanager
+async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
+    """Manage application lifecycle with context"""
+    # Initialize on startup
+    youtrack_url = os.environ.get("YOUTRACK_URL", "")
+    youtrack_token = os.environ.get("YOUTRACK_TOKEN", "")
+    read_only = os.environ.get("YOUTRACK_READ_ONLY", "false").lower() == "true"
+    
+    if not youtrack_url or not youtrack_token:
+        logger.warning("YouTrack URL or token not configured. Set YOUTRACK_URL and YOUTRACK_TOKEN environment variables.")
+    
+    logger.info(f"Starting YouTrack MCP Server with URL: {youtrack_url}")
+    logger.info(f"Read-only mode: {read_only}")
+    
+    try:
+        yield AppContext(
+            youtrack_url=youtrack_url, 
+            youtrack_token=youtrack_token,
+            read_only=read_only
+        )
+    finally:
+        # Cleanup on shutdown
+        logger.info("Shutting down YouTrack MCP Server")
+
+def parse_arguments():
+    """Parse command line arguments for the MCP server."""
+    parser = argparse.ArgumentParser(description='YouTrack MCP Server')
+    parser.add_argument('--read-only', action='store_true',
+                       help='Run in read-only mode (disables all write operations)')
+    parser.add_argument('--youtrack-url', 
+                       help='YouTrack URL (e.g., https://yourdomain.youtrack.cloud)')
+    parser.add_argument('--youtrack-token',
+                       help='YouTrack API permanent token')
+    
+    args = parser.parse_args()
+    
+    # Set environment variables from command line arguments
+    if args.youtrack_url:
+        os.environ["YOUTRACK_URL"] = args.youtrack_url
+    if args.youtrack_token:
+        os.environ["YOUTRACK_TOKEN"] = args.youtrack_token
+    if args.read_only:
+        os.environ["YOUTRACK_READ_ONLY"] = "true"
+    
+    return args
+
+# Configure MCP server
+mcp = FastMCP(
+    server_name, 
+    lifespan=app_lifespan,
+    dependencies=["requests>=2.0.0", "python-dotenv>=0.19.0"]
+)
 
 # Define YouTrack tools
 
@@ -126,65 +185,31 @@ def get_projects() -> str:
     """Get a list of YouTrack projects"""
     return "This resource provides access to YouTrack projects. Use youtrack_search_issues tool to query projects."
 
-# Add lifecycle management for the server
-@dataclass
-class AppContext:
-    youtrack_url: str
-    youtrack_token: str
-    read_only: bool
-
-@asynccontextmanager
-async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
-    """Manage application lifecycle with context"""
-    # Initialize on startup
-    youtrack_url = os.environ.get("YOUTRACK_URL", "")
-    youtrack_token = os.environ.get("YOUTRACK_TOKEN", "")
-    read_only = os.environ.get("YOUTRACK_READ_ONLY", "false").lower() == "true"
-    
-    if not youtrack_url or not youtrack_token:
-        logger.warning("YouTrack URL or token not configured. Set YOUTRACK_URL and YOUTRACK_TOKEN environment variables.")
-    
-    logger.info(f"Starting YouTrack MCP Server with URL: {youtrack_url}")
-    logger.info(f"Read-only mode: {read_only}")
-    
-    try:
-        yield AppContext(
-            youtrack_url=youtrack_url, 
-            youtrack_token=youtrack_token,
-            read_only=read_only
-        )
-    finally:
-        # Cleanup on shutdown
-        logger.info("Shutting down YouTrack MCP Server")
-
-def parse_arguments():
-    """Parse command line arguments for the MCP server."""
-    parser = argparse.ArgumentParser(description='YouTrack MCP Server')
-    parser.add_argument('--read-only', action='store_true',
-                       help='Run in read-only mode (disables all write operations)')
-    parser.add_argument('--youtrack-url', 
-                       help='YouTrack URL (e.g., https://yourdomain.youtrack.cloud)')
-    parser.add_argument('--youtrack-token',
-                       help='YouTrack API permanent token')
-    
-    args = parser.parse_args()
-    
-    # Set environment variables from command line arguments
-    if args.youtrack_url:
-        os.environ["YOUTRACK_URL"] = args.youtrack_url
-    if args.youtrack_token:
-        os.environ["YOUTRACK_TOKEN"] = args.youtrack_token
-    if args.read_only:
-        os.environ["YOUTRACK_READ_ONLY"] = "true"
-    
-    return args
-
-# Configure MCP server
-mcp = FastMCP(
-    server_name, 
-    lifespan=app_lifespan,
-    dependencies=["requests>=2.0.0", "python-dotenv>=0.19.0"]
-)
+# Explicitly register the tools/list endpoint
+@mcp.resource("mcp://tools/list")
+def list_tools():
+    """List all available tools in this MCP server"""
+    # This will automatically return all registered tools
+    return {
+        "tools": [
+            {
+                "name": "youtrack_search_issues",
+                "description": "Search for issues in YouTrack using a query"
+            },
+            {
+                "name": "youtrack_get_issue",
+                "description": "Get details for a specific YouTrack issue by its ID"
+            },
+            {
+                "name": "youtrack_update_issue",
+                "description": "Update an existing YouTrack issue by its ID"
+            },
+            {
+                "name": "youtrack_add_comment",
+                "description": "Add a comment to a YouTrack issue"
+            }
+        ]
+    }
 
 if __name__ == "__main__":
     # Parse command line arguments
