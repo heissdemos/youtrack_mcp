@@ -1,183 +1,138 @@
 # YouTrack MCP Server
 
-A Model Context Protocol (MCP) server for YouTrack Cloud, implemented using the official [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
+Ein Model Context Protocol (MCP) Server für YouTrack Integration mit Claude AI.
 
 ## Features
 
-- Issue search
-- Detailed issue information
-- Update issues (status, assignee, etc.)
-- Add comments to issues
-- Standardized interface via MCP Python SDK
-- Support for stdio and SSE transports
-- Integration with Claude Desktop and other MCP-compatible clients
+- Tickets suchen
+- Detaillierte Ticket-Informationen abrufen
+- Tickets aktualisieren (Status, Bearbeiter, etc.)
+- Kommentare zu Tickets hinzufügen
+- Standardisierte Schnittstelle über MCP
+- Docker-Container für einfache Bereitstellung
 
-## Requirements
+## Anforderungen
 
-- Python 3.7 or higher
-- Access to YouTrack with API token
-- Installed MCP Python SDK
+- Docker
+- Zugang zu YouTrack mit API-Token
 
-## Installation
+## Schnellstart mit Docker
 
-### 1. Clone the repository
+### 1. Kopiere die Beispiel-Umgebungsvariablen
 
 ```bash
-git clone [repository-url]
-cd youtrack_mcp
+cp .env.example .env
 ```
 
-### 2. Install dependencies
+### 2. Konfiguriere die YouTrack-Verbindung
 
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Setup connection to YouTrack
-
-Create a `.env` file in the root directory of the project with the following variables:
+Bearbeite die `.env` Datei und aktualisiere die folgenden Werte:
 
 ```
 YOUTRACK_URL=https://your-instance.youtrack.cloud
 YOUTRACK_TOKEN=your-permanent-token
-MCP_SERVER_NAME=YouTrack MCP Server
-MCP_LOG_LEVEL=INFO
 ```
 
-Or specify these parameters when starting the server via command line arguments.
+### 3. Server starten
 
-## Run MCP server
-
-### Development and debugging
+Das einfachste ist, den Docker-Container mit dem mitgelieferten Skript zu starten:
 
 ```bash
-# Запуск в режиме разработки с интерактивным веб-интерфейсом
-mcp dev server.py
-
-# With additional dependencies
-mcp dev server.py --with pandas --with numpy
+./docker-run.sh
 ```
 
-### Direct run
+Alternativ kannst du auch manuell den Container bauen und starten:
 
 ```bash
-# Run via MCP module
-python server.py
-
-# With additional parameters
-python server.py --youtrack-url https://your-instance.youtrack.cloud --youtrack-token your-token --read-only
+docker build -t youtrack-mcp:latest .
+docker run -d --name youtrack-mcp-server -p 8000:8000 --env-file ./.env youtrack-mcp:latest
 ```
 
-### Command line parameters
+#### Entwicklungsmodus
 
-- `--read-only` - Run in read-only mode (blocks write operations)
-- `--youtrack-url` - URL of your YouTrack instance
-- `--youtrack-token` - API token for YouTrack
-
-## Integration with Claude Desktop
-
-### Step 1: Install server
+Für Entwicklungszwecke steht eine spezielle Dockerfile.dev zur Verfügung, die zusätzliche Tools und Funktionen für die Entwicklung enthält:
 
 ```bash
-# Install server in Claude Desktop
-mcp install server.py
-
-# С пользовательским именем
-mcp install server.py --name "YouTrack MCP"
-
-# With environment variables
-mcp install server.py -v YOUTRACK_URL=https://your-instance.youtrack.cloud -v YOUTRACK_TOKEN=your-token
-mcp install server.py -f .env
+docker build -t youtrack-mcp:dev -f Dockerfile.dev .
+docker run -d --name youtrack-mcp-dev -p 8000:8000 --env-file ./.env youtrack-mcp:dev
 ```
 
-### Step 2: Activate server
+### 4. Server testen
 
-1. Open Claude Desktop
-2. Go to Settings -> MCP Servers
-3. Make sure "YouTrack MCP Server" is listed and activated
+```bash
+# Health-Check
+curl http://localhost:8000/health
 
-## Available tools
+# Server-Info abfragen
+curl -s -X POST -H "Content-Type: application/json" -d '{"name": "server_info"}' http://localhost:8000/mcp
+```
 
-The server provides the following tools for working with YouTrack:
+## Verfügbare Befehle
 
-- `youtrack_search_issues` - Search for issues
-- `youtrack_get_issue` - Get detailed information about an issue
-- `youtrack_update_issue` - Update an issue
-- `youtrack_add_comment` - Add a comment to an issue
+Der Server stellt die folgenden Befehle für die Arbeit mit YouTrack zur Verfügung:
 
-## Usage examples
+- `server_info` - Server-Information abrufen
+- `youtrack_search_issues` - Tickets suchen
+- `youtrack_get_issue` - Detaillierte Informationen zu einem Ticket abrufen
+- `youtrack_update_issue` - Ein Ticket aktualisieren
+- `youtrack_add_comment` - Einen Kommentar zu einem Ticket hinzufügen
 
-### Search for issues:
+## Beispiele für die Verwendung
 
-```json
-{
-  "type": "tool_call",
+### Tickets suchen:
+
+```bash
+curl -s -X POST -H "Content-Type: application/json" -d '{
   "name": "youtrack_search_issues",
-  "parameters": {
-    "query": "project: YourProject",
-    "top": 10
-  }
-}
+  "query": "project: YourProject",
+  "top": 10
+}' http://localhost:8000/mcp
 ```
 
-### Get issue information:
+### Ticket-Informationen abrufen:
 
-```json
-{
-  "type": "tool_call",
+```bash
+curl -s -X POST -H "Content-Type: application/json" -d '{
   "name": "youtrack_get_issue",
-  "parameters": {
-    "issue_id": "YourProject-123"
-  }
-}
+  "issue_id": "YourProject-123"
+}' http://localhost:8000/mcp
 ```
 
-### Добавление комментария:
+### Kommentar hinzufügen:
 
-```json
-{
-  "type": "tool_call",
+```bash
+curl -s -X POST -H "Content-Type: application/json" -d '{
   "name": "youtrack_add_comment",
-  "parameters": {
-    "issue_id": "YourProject-123",
-    "comment_text": "Новый комментарий к задаче"
-  }
-}
+  "issue_id": "YourProject-123",
+  "comment_text": "Neuer Kommentar zum Ticket"
+}' http://localhost:8000/mcp
 ```
 
-### Access resources:
+### Server-Informationen abrufen:
 
-```json
-{
-  "type": "resource_request",
-  "uri": "server://info"
-}
+```bash
+curl -s -X POST -H "Content-Type: application/json" -d '{
+  "name": "server_info"
+}' http://localhost:8000/mcp
 ```
 
-## Architecture
+## Architektur
 
-The MCP server is built using the official Python SDK for Model Context Protocol, ensuring full compatibility with the MCP specification.
+Der YouTrack MCP Server besteht aus zwei Hauptkomponenten:
 
-Main components:
-- `server.py` - MCP server with tool and resource definitions
-- `youtrack_api.py` - Functions for interacting with YouTrack API
+- `main.py` - MCP Server mit HTTP-Schnittstelle und Befehlsdefinitionen
+- `youtrack_api.py` - Funktionen für die Interaktion mit der YouTrack API
 
-## Development and extension
+## Integration mit Claude
 
-To add new tools or resources, use the `@mcp.tool()` and `@mcp.resource()` decorators in the `server.py` file.
+Nachdem der Container erfolgreich gestartet wurde und funktioniert, musst du Claude mit dem MCP-Server verbinden. Führe dazu folgenden Befehl aus:
 
-### Example of adding a new tool:
+```bash
+claude mcp add "YouTracker" http://localhost:8000/mcp -t sse
+```
 
-```python
-@mcp.tool()
-def youtrack_create_issue(project_id: str, summary: str, description: str = None) -> Dict[str, Any]:
-    """
-    Create a new issue in YouTrack.
-    
-    Args:
-        project_id: The ID of the project
-        summary: Issue summary
-        description: Optional issue description
-    """
-    # Add implementation here
-    return {"status": "success", "issue_id": "PROJECT-123"}
+Dieser Befehl registriert den YouTrack MCP Server bei Claude und ermöglicht es Claude, direkt mit YouTrack zu kommunizieren.
+
+## Weitere Dokumentation
+
+Detaillierte Informationen zur Konfiguration und Verwendung des Docker-Containers findest du in [DOCKER.md](DOCKER.md).

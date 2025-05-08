@@ -6,18 +6,25 @@ import argparse
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+import datetime
 import logging
 from typing import Dict, Any, Optional
 import sys
 
-# Configure logging before anything else
-log_level = os.environ.get("MCP_LOG_LEVEL", "INFO").upper()
+# Configure logging before anything else - with enhanced debugging for Docker
+log_level = os.environ.get("MCP_LOG_LEVEL", "DEBUG").upper()  # Set default to DEBUG for more information
 logging.basicConfig(
     level=getattr(logging, log_level),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler()]
 )
+# Enable more verbose logging for important components
+logging.getLogger('uvicorn').setLevel(logging.INFO)
+logging.getLogger('fastapi').setLevel(logging.INFO)
+logging.getLogger('mcp').setLevel(logging.DEBUG)
+
 logger = logging.getLogger('youtrack-mcp')
+logger.info(f"Initializing YouTrack MCP Server with log level: {log_level}")
 
 # Output server startup message
 print(f"Starting YouTrack MCP Server (Python SDK version) - Log level: {log_level}")
@@ -172,18 +179,44 @@ def youtrack_add_comment(issue_id: str, comment_text: str, fields: str = "id,tex
 @mcp.resource("server://info")
 def server_info() -> Dict[str, Any]:
     """Get YouTrack MCP Server information"""
-    return {
-        "status": "ok", 
-        "version": "0.2.0", 
-        "server": server_name,
-        "youtrack_url": os.environ.get("YOUTRACK_URL", "Not configured")
-    }
+    logger.debug("server://info resource requested")
+    try:
+        result = {
+            "status": "ok", 
+            "version": "0.2.0", 
+            "server": server_name,
+            "youtrack_url": os.environ.get("YOUTRACK_URL", "Not configured"),
+            "host_binding": os.environ.get("MCP_HOST", "0.0.0.0"),
+            "port": os.environ.get("MCP_PORT", "8000"),
+            "debug_mode": log_level == "DEBUG"
+        }
+        logger.debug(f"Returning server info: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in server://info: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
 # Resource for accessing YouTrack projects
 @mcp.resource("youtrack://projects")
 def get_projects() -> str:
     """Get a list of YouTrack projects"""
     return "This resource provides access to YouTrack projects. Use youtrack_search_issues tool to query projects."
+
+# Health check endpoint for Docker container monitoring
+@mcp.resource("mcp://health")
+def health_check() -> Dict[str, Any]:
+    """Health check endpoint for Docker container monitoring"""
+    logger.debug("Health check requested")
+    return {
+        "status": "healthy",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "version": "0.2.0"
+    }
 
 # Explicitly register the tools/list endpoint
 @mcp.resource("mcp://tools/list")
@@ -215,5 +248,17 @@ if __name__ == "__main__":
     # Parse command line arguments
     args = parse_arguments()
     
-    # Run the server
+    # Configure for Docker operation
+    # Note: MCP SDK uses uvicorn internally which binds to 0.0.0.0 by default
+    host = os.environ.get("MCP_HOST", "0.0.0.0")  # Not directly used, but logged for info
+    port = int(os.environ.get("MCP_PORT", "8000"))  # Not directly used, but logged for info
+    
+    # Set UVicorn environment variables that will be picked up by FastMCP
+    os.environ["UVICORN_HOST"] = host
+    os.environ["UVICORN_PORT"] = str(port)
+    
+    logger.info(f"Starting MCP server on {host}:{port} with transport: HTTP")
+    
+    # Run the server without specifying transport - FastMCP automatically uses HTTP
+    # Default transport is 'stdio', but when UVICORN_* variables are set, it uses HTTP
     mcp.run()

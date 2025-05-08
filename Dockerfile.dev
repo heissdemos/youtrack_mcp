@@ -1,0 +1,54 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Systemabhängigkeiten installieren
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pip-Abhängigkeiten installieren
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt python-dotenv "mcp[cli]"
+
+# Quellcode kopieren
+COPY *.py .
+COPY *.md .
+COPY bin/ ./bin/
+
+# MCP_LOG_LEVEL explizit setzen
+ENV MCP_LOG_LEVEL=INFO
+# Korrektur für den Log-Level-Fehler in server.py hinzufügen
+RUN sed -i 's/log_level = os.environ.get("MCP_LOG_LEVEL", "INFO").upper()/log_level = "INFO"/' server.py
+
+# Port freigeben
+EXPOSE 8000
+
+# Startskript für grundlegenden MCP-Modus erstellen
+RUN echo '#!/bin/bash\n\
+echo "Starting YouTrack MCP Server in development mode..."\n\
+\n\
+# MCP variables for development\n\
+export MCP_HOST=0.0.0.0\n\
+export MCP_PORT=8000\n\
+export YOUTRACK_URL=${YOUTRACK_URL}\n\
+export YOUTRACK_TOKEN=${YOUTRACK_TOKEN}\n\
+export YOUTRACK_READ_ONLY=${YOUTRACK_READ_ONLY:-false}\n\
+\n\
+# Run with either the MCP CLI (if available) or directly\n\
+if command -v mcp &> /dev/null; then\n\
+    echo "Using MCP CLI for development..."\n\
+    exec mcp dev main.py\n\
+else\n\
+    echo "Using direct execution mode..."\n\
+    exec python main.py --transport sse --port 8000\n\
+fi\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Im Entwicklungsmodus starten
+ENTRYPOINT ["/app/start.sh"]

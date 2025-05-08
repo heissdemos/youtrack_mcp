@@ -167,6 +167,7 @@ def start_sse_transport(port):
     try:
         # Only import these if SSE transport is requested
         from flask import Flask, request, Response
+        import os
         
         app = Flask(__name__)
         
@@ -180,12 +181,41 @@ def start_sse_transport(port):
                 error_response = {"status": "error", "error": str(e)}
                 return Response(json.dumps(error_response), mimetype='application/json')
         
+        @app.route('/health', methods=['GET'])
+        def health_check():
+            """Einfacher Health-Check-Endpunkt"""
+            return {"status": "ok", "version": "0.1.0", "env": os.environ.get("YOUTRACK_URL", "")}
+        
         logger.info(f"YouTrack MCP Server started (SSE transport) on port {port}")
         app.run(host='0.0.0.0', port=port)
         
     except ImportError:
         logger.error("Flask is required for SSE transport. Install it with 'pip install flask'")
         sys.exit(1)
+
+app = None
+
+def create_app():
+    """Erstellt und konfiguriert die Flask-App für WSGI-Server"""
+    from flask import Flask
+    app = Flask(__name__)
+
+    @app.route('/mcp', methods=['POST'])
+    def mcp_endpoint():
+        try:
+            request_data = request.json
+            response_json = handle_request(request_data)
+            return Response(response_json, mimetype='application/json')
+        except Exception as e:
+            error_response = {"status": "error", "error": str(e)}
+            return Response(json.dumps(error_response), mimetype='application/json')
+
+    @app.route('/health', methods=['GET'])
+    def health_check():
+        """Einfacher Health-Check-Endpunkt"""
+        return {"status": "ok", "version": "0.1.0", "env": os.environ.get("YOUTRACK_URL", "")}
+
+    return app
 
 if __name__ == "__main__":
     args = parse_arguments()

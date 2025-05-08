@@ -89,12 +89,18 @@ celerybeat-schedule
 
 # Environments
 .env
+.env.bak
+.env.local
+.env.*.local
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Don't ignore the example env file
+!.env.example
 
 # Spyder project settings
 .spyderproject
@@ -118,3 +124,17 @@ dmypy.json
 2.0.0
 .windsurfrules
 test_request.json
+
+# Potential sensitive files
+**/.claude/settings.local.json
+**/*.pem
+**/*.key
+**/*.crt
+**/*.p12
+**/*.pfx
+**/secrets.yml
+**/secrets.yaml
+**/secrets.json
+**/credentials.json
+**/*.token
+**/token.txt

@@ -19,7 +19,10 @@ def _get_headers() -> Dict[str, str]:
 
 def _get_youtrack_url() -> str:
     """Get YouTrack URL from environment variables"""
-    return os.environ.get("YOUTRACK_URL", YOUTRACK_URL)
+    url = os.environ.get("YOUTRACK_URL", YOUTRACK_URL)
+    # Remove quotes if present (Docker env vars might add them)
+    url = url.strip('"').strip("'")
+    return url
 
 # --- Placeholder Functions --- #
 
