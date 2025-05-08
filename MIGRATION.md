@@ -1,12 +1,14 @@
-# Migration to MCP Python SDK
+# Migration History of YouTrack MCP Server
 
-This document describes the process of migrating the YouTrack MCP server to the official Python SDK for Model Context Protocol.
+This document describes the evolution of the YouTrack MCP server integration.
 
-## What was done
+## Migration History
+
+### Phase 1: Migration to MCP Python SDK
 
 1. **Server architecture changed**:
    - Transition from custom MCP implementation to official SDK
-   - Replacement of `main.py` with `server.py` using `FastMCP` class
+   - Implementation of `server.py` using `FastMCP` class
    - Improved type hints and code documentation
 
 2. **Configuration improved**:
@@ -24,53 +26,72 @@ This document describes the process of migrating the YouTrack MCP server to the 
    - Improved logging and error handling
    - Added type hints for better IDE support
 
-## Benefits of using MCP Python SDK
+### Phase 2: Docker Integration & HTTP Transport
 
-1. **Compatibility** - Full compatibility with MCP specification
-2. **Extensibility** - Easy addition of new tools and resources
-3. **Integration** - Built-in support for Claude Desktop and other MCP clients
-4. **Modernization** - Using modern Python features
-5. **Support** - Official support and SDK updates
+1. **Server transport optimized**:
+   - Return to using `main.py` for robust HTTP support
+   - Simplified transport configuration for Docker environments
 
-## How to start using the new server
+2. **Docker integration**:
+   - Full Docker support with production and development configurations
+   - Environment variable handling through Docker container
+   - Health checks for container monitoring
 
-1. **Setup**:
+3. **Documentation improvements**:
+   - Updated documentation in German
+   - Added detailed Docker configuration documentation
+   - Simplified setup with scripts and examples
+
+## Benefits of Current Implementation
+
+1. **Docker Integration** - Easy deployment with Docker containers
+2. **HTTP Transport** - Robust HTTP support for integration with Claude
+3. **Environment Configuration** - Simple configuration through .env files
+4. **Compatibility** - Full compatibility with MCP specification
+5. **Integration** - Simple integration with Claude AI
+6. **Security** - Protection of sensitive credentials
+
+## How to Start Using the Current Server
+
+1. **Setup Docker**:
    ```bash
-   # Setup server
-   python setup.py setup --youtrack-url https://your-instance.youtrack.cloud --youtrack-token your-token
-   ```
-
-2. **Run**:
-   ```bash
-   # Run server
-   python setup.py run
+   # Copy example environment file
+   cp .env.example .env
    
-   # Or run in development mode
-   python setup.py dev
+   # Edit environment file with your YouTrack credentials
+   nano .env
    ```
 
-3. **Install in Claude Desktop**:
+2. **Run with Docker**:
    ```bash
-   # Install in Claude Desktop
-   python setup.py install --name "YouTrack MCP"
+   # Run with the provided script
+   ./docker-run.sh
+   
+   # Or run manually
+   docker build -t youtrack-mcp:latest .
+   docker run -d --name youtrack-mcp-server -p 8000:8000 --env-file ./.env youtrack-mcp:latest
    ```
 
-## Retained functionality
+3. **Connect to Claude**:
+   ```bash
+   # Add the MCP server to Claude
+   claude mcp add "YouTracker" http://localhost:8000/mcp -t sse
+   ```
 
-All main tools from the previous version are retained:
-- `youtrack_search_issues`
-- `youtrack_get_issue`
-- `youtrack_update_issue`
-- `youtrack_add_comment`
+## Available Functionality
 
-## Backward compatibility
+The server provides the following tools for working with YouTrack:
+- `server_info` - Get server information
+- `youtrack_search_issues` - Search for issues
+- `youtrack_get_issue` - Get detailed information about an issue
+- `youtrack_update_issue` - Update an issue
+- `youtrack_add_comment` - Add a comment to an issue
 
-This server supports the same tools as the previous version, but with minor changes in request format in accordance with the MCP specification.
-
-## Future improvements
+## Future Improvements
 
 In future versions, we plan to:
-1. Add new tools for working with projects, agile boards, and reports
-2. Expand resource support
-3. Improve performance and caching management
-4. Add unit tests
+1. Expand functionality with additional YouTrack API integrations
+2. Add more comprehensive error handling
+3. Implement caching for improved performance
+4. Add additional documentation and examples
+5. Provide a web interface for direct testing
